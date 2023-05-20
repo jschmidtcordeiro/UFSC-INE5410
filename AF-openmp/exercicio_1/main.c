@@ -4,6 +4,7 @@
 #include <omp.h>
 
 void calcular(double* c, int size, int n_threads) {
+    #pragma omp for
     for (long long int i = 0; i < size; i++) {
         c[i] = sqrt(i * 32) + sqrt(i * 16 + i * 8) + sqrt(i * 4 + i * 2 + i);
         c[i] -= sqrt(i * 32 * i * 16 + i * 4 + i * 2 + i);
@@ -24,6 +25,7 @@ int main(int argc, char** argv) {
     
     //Guarda ponto de início da computação
     double start = omp_get_wtime();
+    #pragma omp parallel
     calcular(c, size, n_threads);
     double duration = omp_get_wtime()-start; //quanto tempo passou
     printf("n_threads: %d, size: %d, tempo: %.3f secs\n", 

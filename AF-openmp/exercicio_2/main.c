@@ -3,8 +3,16 @@
 #include <stdlib.h>
 #include <omp.h>
 
+#define DEBUG 1
+
 void init_matrix(double* m, int rows, int columns) {
-    #pragma omp parallel for schedule(guided)
+    /*
+     * Mudar para estático, visto que sempre eh 
+     * feita a mesma computação. Desse modo não eh
+     * necessario que a cada iteracao uma thread 
+     * busque o que ela deve fazer em seguida.
+     */
+    #pragma omp parallel for schedule(static) 
     for (int i = 0; i < rows; ++i)
         for (int j = 0; j < columns; ++j)
             m[i*columns+j] = i + j;
@@ -13,16 +21,37 @@ void init_matrix(double* m, int rows, int columns) {
 
 void mult_matrix(double* out, double* left, double *right, 
                  int rows_left, int cols_left, int cols_right) {
-    int i, j, k;
-    #pragma omp parallel for schedule(dynamic, 1)
-    for (i = 0; i < rows_left; ++i) {
-        for (j = 0; j < cols_right; ++j) {
+    
+    #ifdef DEBUG
+    //Guarda ponto de início da computação
+    double start = omp_get_wtime();
+    #endif
+
+    /*
+     * Nesse trecho foi retirado o segundo comando
+     * pragma parallel, visto que paralelizar algo que
+     * já estava paralizado não eh uma boa pratica.
+     * 
+     * Serao criadas muitas threads e essa criacao 
+     * desnecessaria eh o que o estagiario fez de errado.
+     * 
+     * Posteriormente foi testado a clausula reduction
+     * e o seu uso resultou em um ganho de desempenho
+     * consideravel
+     */
+    #pragma omp parallel for schedule(static) reduction(+: out[: rows_left * rows_left])
+    for (int i = 0; i < rows_left; ++i) {
+        for (int j = 0; j < cols_right; ++j) {
             out[i*cols_right+j] = 0;
-            #pragma omp parallel for firstprivate(i, j) schedule(guided)
-            for (k = 0; k < cols_left; ++k) 
+            for (int k = 0; k < cols_left; ++k) 
                 out[i*cols_right+j] += left[i*cols_left+k]*right[k*cols_right+j];
         }
     }
+
+    #ifdef DEBUG
+    double duration = omp_get_wtime()-start; //quanto tempo passou
+    printf("Tempo: %f\n\n", duration);
+    #endif
 }
 
 int main (int argc, char *argv[]) {
